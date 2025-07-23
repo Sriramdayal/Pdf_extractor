@@ -17,7 +17,7 @@ This Python tool extracts **multiple questions** per page from PDFs using **OCR*
 
 ## ⚙️ Setup Instructions
 
-### 1. Clone the Repository
+### 
 
 ```bash
 git clone https://github.com/Sriramdayal/Pdf_extractor.git
