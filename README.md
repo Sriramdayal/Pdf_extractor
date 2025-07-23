@@ -22,4 +22,8 @@ This Python tool extracts **multiple questions** per page from PDFs using **OCR*
 ```bash
 git clone https://github.com/Sriramdayal/Pdf_extractor.git
 cd Pdf_extractor
+python -m venv venv
+source venv/bin/activate      # Linux/macOS
+venv\Scripts\activate         # Windows
+pip install pdf2image pytesseract opencv-python pillow
 python3 extract.py  
