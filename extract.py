@@ -9,16 +9,17 @@ import re
 
 def parse_questions(text):
     """
-    Extract all numbered questions using patterns like '1.', '2.', ..., '35.'
+    Extracts all questions using numbered format like '1.', '2.', etc.
+    Returns list of (question_number, question_text) tuples.
     """
-    pattern = r'(\d{1,2}\.\s.*?)(?=\n\d{1,2}\.\s|$)'  # matches from "1." to just before "2.", etc.
+    pattern = r'(\d{1,2}\.\s.*?)(?=\n\d{1,2}\.\s|$)'
     matches = re.findall(pattern, text, re.DOTALL)
     return [q.strip() for q in matches]
 
 def extract_images_from_page(page, page_number, output_dir):
     """
-    Extract and save images from a PDF page using PyMuPDF.
-    Returns a list of saved image file paths.
+    Extracts and saves images from a PDF page.
+    Returns a list of image file paths.
     """
     image_paths = []
     image_list = page.get_images(full=True)
@@ -33,14 +34,14 @@ def extract_images_from_page(page, page_number, output_dir):
         image_filename = f"page_{page_number + 1}_img_{img_index + 1}.{image_ext}"
         image_path = os.path.join(output_dir, image_filename)
         image.save(image_path)
-        image_paths.append(image_path.replace("\\", "/"))  # Normalize path for all OS
+        image_paths.append(image_path.replace("\\", "/"))
 
     return image_paths
 
 def extract_from_pdf(pdf_path, output_folder):
     """
-    Main function to extract all questions and images from the PDF,
-    and save them in a JSON file format.
+    Full PDF parsing logic: extracts all questions and nearby images.
+    Saves results as JSON.
     """
     doc = fitz.open(pdf_path)
     pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -50,41 +51,39 @@ def extract_from_pdf(pdf_path, output_folder):
     all_questions = []
     all_images = []
 
-    # Step 1: Extract all questions and all images
+    # Step 1: Extract all text and images
     for page_number, page in enumerate(doc):
         page_text = page.get_text()
-        questions_on_page = parse_questions(page_text)
+        page_questions = parse_questions(page_text)
         image_paths = extract_images_from_page(page, page_number, pdf_output_path)
 
-        for q in questions_on_page:
+        for q in page_questions:
             all_questions.append({
                 "question": q,
-                "images": None  # will be filled later if image available
+                "images": None,          # Will assign below
+                "option_images": []
             })
-
         all_images.extend(image_paths)
 
-    # Step 2: Assign one image per question, in order
-    for i in range(len(all_questions)):
-        if i < len(all_images):
-            all_questions[i]["images"] = all_images[i]
-
-    # Step 3: Save as questions.json
+    # Step 2: Associate images to questions (1 main + rest as options)
+    q_count = len(all_questions)
+    for i in range(min(q_count, len(all_images))):
+        all_questions[i]["images"] = all_images[i]
+    
+    # Step 3: Save as JSON
     json_path = os.path.join(pdf_output_path, "questions.json")
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(all_questions, f, indent=4)
 
-    print(f"✅ Extracted {len(all_questions)} questions from {pdf_path}")
-    print(f"→ Output saved in: {pdf_output_path}")
-    print(f"→ JSON path: {json_path}")
+    print(f"Extracted {len(all_questions)} questions from {pdf_path}")
+    print(f"→ Saved to: {json_path}")
 
 def select_and_extract():
     """
-    GUI logic: file selector and output directory chooser.
+    GUI handler: lets user pick PDFs and output folder.
     """
     files = filedialog.askopenfilenames(
-        title="Select PDF Files",
-        filetypes=[("PDF files", "*.pdf")]
+        title="Select PDF Files", filetypes=[("PDF files", "*.pdf")]
     )
     if not files:
         return
@@ -97,14 +96,14 @@ def select_and_extract():
         try:
             extract_from_pdf(file, output_folder)
         except Exception as e:
-            messagebox.showerror("Error", f"Error processing {file}:\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to extract from {file}:\n{str(e)}")
 
-    messagebox.showinfo("Done", "✅ All PDFs processed successfully!")
+    messagebox.showinfo("Done", " All questions and images extracted successfully!")
 
-# ------------------ GUI Setup ------------------ #
+# ----------------- GUI Layout ----------------- #
 
 root = tk.Tk()
-root.title("PDF Question Extractor (Clean JSON)")
+root.title("PDF Question Extractor with JSON")
 root.geometry("460x250")
 root.resizable(False, False)
 
@@ -113,7 +112,7 @@ frame.pack(pady=50)
 
 label = tk.Label(
     frame,
-    text="📝 Extract all questions and images from PDFs",
+    text=" Extract all questions and images from PDFs",
     font=("Arial", 12)
 )
 label.pack(pady=10)
